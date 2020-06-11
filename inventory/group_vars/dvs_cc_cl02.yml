@@ -1,0 +1,18 @@
+---
+poortgroepen:
+  'VLAN10':
+    vlan_nr: 10
+    num_ports: 16
+    pg_type: earlyBinding
+    pg_state: present
+  'VLAN11':
+    vlan_nr: 11
+    num_ports: 16
+    pg_type: earlyBinding
+    pg_state: present
+  'VLAN99':
+    vlan_nr: 99
+    num_ports: 16
+    pg_type: earlyBinding
+    pg_state: present
+    

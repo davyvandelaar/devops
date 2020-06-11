@@ -1,0 +1,28 @@
+---
+- name: set or remove portgroups from dvs
+  hosts: all
+  connection: local
+
+  # pre task to make sure you use the --limit ec2_vpc_dhcp_option
+  pre-tasks:
+    - name: check for use of limit
+      fail:
+        msg: "use -l or --limit to run"
+      when: ansible_limit is not defined
+      run_once: true
+
+  # make the task iterate over dicts defined in group_var files
+  tasks:
+    - name: set or remove portgroup
+      vmware_dvs_portgroup:
+        hostname: vc01
+        username: your_vcenter_username
+        password: your-vcenter_password
+        validate_certs: false
+        portgroup_name: "{{ inventory_hostname }}-{{ item.key }}"
+        switch_name: "{{ inventory_hostname }}"
+        vland_id: "{{ item.value.vlan_nr }}"
+        num_ports: "{{ item.value.vlan_nr }}"
+        portgroup_type: "{{ item.value.pg_type }}"
+        state: "{{ item.value.pg_state }}"
+      loop: "{{ query('dict',poortgroepen) }}"

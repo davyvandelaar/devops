@@ -1,0 +1,14 @@
+---
+all:
+  children:
+    codecrusaders:
+      children:
+        distributed_switches:
+          children:
+            dvs_cc_cl01:
+              hosts:
+                vc01_dvs01:
+            dvs_cc_cl02:
+              hosts:
+                vc01_dvs02
+   
