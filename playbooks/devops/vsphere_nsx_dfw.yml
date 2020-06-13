@@ -1,0 +1,45 @@
+---
+- name: create firewall rules with security groups
+  hosts: all
+  gather_facts: no
+  vars_files:
+    - "{{ inventory_dir }}/vars/script_naming.yml"
+  
+  # pre task to make sure you use the --limit ec2_vpc_dhcp_option
+  pre-tasks:
+    - name: check for use of limit
+      fail:
+        msg: "use -l or --limit to run"
+      when: ansible_limit is not defined
+      run_once: true
+
+  vars:
+    ansible_user: "{{ windows_ansible_user }}" # winrm user
+    ansible_password: "{{ windows_ansible_password }}"
+    ansible_connection: winrm
+    ansible_shell_type: powershell
+    ansible_winrm_transport: credssp
+    ansible_winrm_server_cert_validation: ignore
+
+
+  tasks:
+    - name: create dfw securitygroup
+      create_dfw_sec_group:
+        vcenter: vc01
+        sso_user: your-vc-sso-user
+        sso_password: your-vc-sso-password
+        security_group: "sg_{{ item.key }}"
+        dynamic_memberid: "VM{{ item.key }}"
+      loop: "{{ query('dict',script_naming) }}"
+      delegate_to: yourjumphost.somedomain.com
+
+    - name: create dfw firewall rule
+      create_dfw_rule:
+        vcenter: vc01
+        sso_user: your-vc-sso-user
+        sso_password: your-vc-sso-password
+        firewall_rule: "fw_rule_{{ item.key }}"
+        firewall_section: "{{ item.value.section }}"
+        security_group: "sg_{{ item.key }}"
+      loop: "{{ query('dict',script_naming) }}"
+      delegate_to: yourjumphost.somedomain.com
