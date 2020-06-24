@@ -1,0 +1,121 @@
+# nsx-firewallrule-create.yml
+---
+- name: retrieve securitygroup information
+  uri:  
+    url: https://<your-nsx-manager>/api/2.0/services/securitygroup/scope/globalroot-0
+    method: GET
+    return_content: yes
+    user: <nsx_api_web_user>
+    password: <nsx_api_web_user_password>
+    headers:
+      Content-Type: "application/xml"
+    force_basic_auth: yes
+    validate_certs: no
+    status_code: 200
+  register: output_secgroup
+
+- name: get secgroup-attribute from xml content
+  xml:
+    xmlstring:  "{{ output_secgroup.content }}"
+    xpath: /list/securitygroup[name='{{ item.value.secgroup_name }}']/objectId
+    content: 'text'
+  register: secgroup_attributes
+
+- name: set securitygroup-id as fact
+  set_fact: 
+    secgroup_id: "{{ secgroup_attributes.matches.0.objectId }}"
+  register: secgroup_results
+
+- name: make urls machine readable
+  set_fact: section="{{ item.value.section_name | replace(' ','%20') }}"
+
+- name: check for dfw etag and section ID
+  uri:
+    url: https://<your-nsx-manager>/api/4.0/firewall/globalroot-0/config/layer3sections?name={{ section }}
+    method: GET
+    return_content: yes
+    user: <nsx_api_web_user>
+    password: <nsx_api_web_user_password>
+    body_format: raw
+    headers:
+      Content-Type: "application/xml"
+    force_basic_auth: yes
+    validate_certs: no
+    status_code: 200
+  register: l3section 
+
+- name: get section_id xml content
+  xml:
+    xmlstring: "{{ l3section.content }}"
+    xpath: /sections/section
+    content: attribute
+  register: section_attributes
+
+- name: set the section id needed for use in API
+  set_fact: 
+    section_id: "{{ section_attributes.matches.0.section.id|default(['post']) }}"
+
+- name: set the Etag id
+  set_fact:
+    etag_id: "{{section_attributes.matches.0.section.generationNumber|default(['post']) }}"
+    # etag_id: "{{ l3section.etag }}" -> not working since 6.4.5 because of double-double quotes issue
+
+# below debugs are just informational to show you the section id and the etag id
+- debug:
+    msg: "{{ section_id }}"
+
+- debug:
+    msg: "{{ etag_id }}"
+
+- name: get rule_name xml content
+  xml:
+    xmlstring: "{{ l3section.content }}"
+    xpath: /sections/section/rule[sectionId={{ section_id }}]/name
+    content: text
+  register: section_attributes_rule
+
+- name: search for existing rules
+  set_fact: 
+    rule_dict: "{{ section_attributes_rule['matches'] | selectattr('name','search', item.key|string ) | list | default([]) }}"
+  register: rules
+
+- name: set rule name if found - optional task
+  set_fact:
+    rule_name: "{{ rule_dict[0].name }}"
+  when: rule_dict != []
+
+- name: create rule (POST)
+  uri:
+    url: https://<your-nsx-manager>/api/4.0/firewall/globalroot-0/config/layer3sections/{{ section_id }}/rules
+    method: POST
+    return_content: yes
+    user: <nsx_api_web_user>
+    password: <nsx_api_web_user_password>
+    body_format: raw
+    headers:
+      Content-Type: "application/xml"
+      If-Match: "{{ etag_id }}"
+    body: 
+      <rule disabled="true" logged="false">
+        <name>{{ item.key }}</name>
+        <action>allow</action>
+        <sectionId>{{ section_id }}</sectionId>
+        <sources excluded="false">
+          <source>
+            <value>{{ secgroup_id }}</value>
+            <type>SecurityGroup</type>
+          </source>
+        </sources>
+        <destinations excluded="false">
+          <destination>
+            <value>{{ secgroup_id }}</value>
+            <type>SecurityGroup</type>
+          </destination>
+        </destinations>
+      </rule>
+    force_basic_auth: yes
+    validate_certs: no
+    status_code: 201
+  register: l3section_rule
+  when: rule_dict == []
+  changed_when: l3section_rule.status == 201

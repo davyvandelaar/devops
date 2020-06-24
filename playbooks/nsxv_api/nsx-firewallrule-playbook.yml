@@ -1,0 +1,12 @@
+---
+- name: playbook for adding rules to Sections
+  hosts: localhost
+
+  pre_tasks:
+    - name: include vars from dict
+      include_vars: nsx-firewallrule-vars.yml
+
+  tasks:
+    - name: create some firewall rules
+      include_tasks: nsx-firewallrule-create.yml
+      loop: "{{ query('dict',fwrules) }}"

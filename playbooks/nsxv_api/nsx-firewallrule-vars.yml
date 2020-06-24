@@ -1,0 +1,11 @@
+fwrules:
+  'rule_cc_01':
+    section_name: Micro Segmentation Codecrusaders
+    secgroup_name: sg_codecrusaders_01
+  'rule_cc_02':
+    section_name: Micro Segmentation Codecrusaders
+    secgroup_name: sg_codecrusaders_02
+  'rule_cc_03':
+    section_name: Micro Segmentation Codecrusaders
+    secgroup_name: sg_codecrusaders_03
+    
